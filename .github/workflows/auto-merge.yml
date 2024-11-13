@@ -12,38 +12,49 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
+            // Access the pull_request object from the event payload
+            const pullRequest = context.payload.pull_request;
+
+            if (!pullRequest) {
+              console.log("No pull request found.");
+              return;
+            }
+
             const { data: reviews } = await github.rest.pulls.listReviews({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              pull_number: context.payload.pull_request.number,
+              pull_number: pullRequest.number,
             });
 
             // Count the number of approved reviews
             const approvals = reviews.filter(review => review.state === "APPROVED").length;
 
             // Define the required number of approvals
-            const requiredApprovals = 1; // Adjust this number as per your branch protection rule
+            const requiredApprovals = 1; // Adjust this number based on your branch protection rule
+
+            // Get the pull request details to check mergeable state
             const { data: prData } = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: pullRequest.number,
             });
 
-            // **If the PR is not mergeable, do not merge**
             if (!prData.mergeable) {
               console.log('The pull request has merge conflicts.');
               return;
             }
-            // Check if the PR has the required approvals
+
+            // Perform the merge if approvals are met
             if (approvals >= requiredApprovals) {
-              await github.rest.pulls.merge({
+              const octokit = github.getOctokit(process.env.PERSONAL_ACCESS_TOKEN);  // Use the token stored in secrets
+              await octokit.pulls.merge({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                pull_number: context.payload.pull_request.number,
+                pull_number: pullRequest.number,
               });
               console.log("Pull request has been merged automatically!");
             } else {
               console.log(`Approvals: ${approvals}. Waiting for more approvals.`);
             }
-            env:
-          PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+        env:
+          PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}  # Reference the secret here

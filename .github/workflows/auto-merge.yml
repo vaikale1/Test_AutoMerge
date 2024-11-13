@@ -8,6 +8,11 @@ jobs:
   auto-merge:
     runs-on: ubuntu-latest
     steps:
+
+
+      - name: Debug Event Payload
+        run: echo "${{ toJson(github.event) }}"
+        
       - name: Check for merge requirements
         uses: actions/github-script@v6
         with:

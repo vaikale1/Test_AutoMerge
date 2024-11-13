@@ -22,7 +22,7 @@ jobs:
             const approvals = reviews.filter(review => review.state === "APPROVED").length;
 
             // Define the required number of approvals
-            const requiredApprovals = 2; // Adjust this number as per your branch protection rule
+            const requiredApprovals = 1; // Adjust this number as per your branch protection rule
 
             // Check if the PR has the required approvals
             if (approvals >= requiredApprovals) {

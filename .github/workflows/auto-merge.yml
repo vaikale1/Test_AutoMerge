@@ -1,0 +1,37 @@
+name: Auto Merge on Approval
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for merge requirements
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const { data: reviews } = await github.rest.pulls.listReviews({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+            });
+
+            // Count the number of approved reviews
+            const approvals = reviews.filter(review => review.state === "APPROVED").length;
+
+            // Define the required number of approvals
+            const requiredApprovals = 2; // Adjust this number as per your branch protection rule
+
+            // Check if the PR has the required approvals
+            if (approvals >= requiredApprovals) {
+              await github.rest.pulls.merge({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.pull_request.number,
+              });
+              console.log("Pull request has been merged automatically!");
+            } else {
+              console.log(`Approvals: ${approvals}. Waiting for more approvals.`);
+            }

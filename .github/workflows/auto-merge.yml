@@ -23,7 +23,17 @@ jobs:
 
             // Define the required number of approvals
             const requiredApprovals = 1; // Adjust this number as per your branch protection rule
-            
+            const { data: prData } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pullRequest.number,
+            });
+
+            // **If the PR is not mergeable, do not merge**
+            if (!prData.mergeable) {
+              console.log('The pull request has merge conflicts.');
+              return;
+            }
             // Check if the PR has the required approvals
             if (approvals >= requiredApprovals) {
               await github.rest.pulls.merge({
@@ -35,3 +45,5 @@ jobs:
             } else {
               console.log(`Approvals: ${approvals}. Waiting for more approvals.`);
             }
+            env:
+          PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}

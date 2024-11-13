@@ -19,6 +19,7 @@ jobs:
           script: |
             // Access the pull_request object from the event payload
             const pullRequest = context.payload.pull_request;
+            console.log("Event Payload:", JSON.stringify(context.payload, null, 2));
 
             if (!pullRequest) {
               console.log("No pull request found.");

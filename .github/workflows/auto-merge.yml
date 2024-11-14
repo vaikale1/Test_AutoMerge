@@ -32,7 +32,7 @@ jobs:
       - name: Ensure PR is mergeable
         id: mergeable
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+          GH_TOKEN: ${{ github.token }} 
         run: |
            mergeable=$(gh pr view ${{ github.event.pull_request.number }} --json mergeable --jq .mergeable)
 
@@ -48,12 +48,12 @@ jobs:
       - name: Debug Permissions
         run: |
           echo "GITHUB_TOKEN permissions"
-          curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/user
+          curl -H "Authorization: Bearer ${{github.token }}" https://api.github.com/user
 
       - name: Automerge Script
         uses: actions/github-script@v6
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
         with:
           script: |
             const { data: pr } = await github.rest.pulls.get({

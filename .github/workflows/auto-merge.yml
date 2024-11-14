@@ -41,7 +41,7 @@ jobs:
       - name: Automerge
         uses: "pascalgn/automerge-action@v0.16.4"
         env:
-          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }} 
         with:
           mergeMethod: squash
           mergeCommitMessage: "Auto-merged by GitHub Actions"

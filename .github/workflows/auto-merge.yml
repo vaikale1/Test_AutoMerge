@@ -45,6 +45,10 @@ jobs:
            else
             echo "Pull request is mergeable."
            fi
+      - name: Debug Permissions
+        run: |
+          echo "GITHUB_TOKEN permissions"
+          curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/user
 
       - name: Automerge Script
         uses: actions/github-script@v6

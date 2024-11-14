@@ -34,11 +34,17 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
         run: |
-          gh pr view ${{ github.event.pull_request.number }} --json mergeable --jq .mergeable > mergeable.txt
-          if [ "$(cat mergeable.txt)" != "MERGEABLE" ]; then
-            echo "Pull request is not mergeable"
+           mergeable=$(gh pr view ${{ github.event.pull_request.number }} --json mergeable --jq .mergeable)
+
+           if [ "$mergeable" = "false" ]; then
+             echo "Pull request is not mergeable."
+             exit 1
+           elif [ "$mergeable" = "null" ]; then
+            echo "Mergeable state is unknown. Please check the PR status."
             exit 1
-          fi
+           else
+            echo "Pull request is mergeable."
+           fi
 
       - name: Automerge Script
         uses: actions/github-script@v6

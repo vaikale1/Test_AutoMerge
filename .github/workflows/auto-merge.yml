@@ -65,7 +65,7 @@ jobs:
                 console.log("okay");
              }
              
-            if (pr.mergeable && pr.mergeable_state === "clean") {
+            if (pr.mergeable) {
              await github.rest.pulls.merge({
                 owner: context.repo.owner,
                 repo: context.repo.repo,

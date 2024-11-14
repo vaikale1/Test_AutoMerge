@@ -55,6 +55,9 @@ jobs:
                 console.log("Pull request has merge conflicts.");
                 return;
              }
+             if(!pr.mergeable){
+             console.log("not merging");
+             }
             if (pr.mergeable && pr.mergeable_state === "clean") {
              await github.rest.pulls.merge({
                 owner: context.repo.owner,

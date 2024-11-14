@@ -26,7 +26,22 @@ jobs:
       contents: write
       pull-requests: write
     steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Ensure PR is mergeable
+        id: mergeable
+        run: |
+          gh pr view ${{ github.event.pull_request.number }} --json mergeable --jq .mergeable > mergeable.txt
+          if [ "$(cat mergeable.txt)" != "MERGEABLE" ]; then
+            echo "Pull request is not mergeable"
+            exit 1
+          fi
+
       - name: Automerge
         uses: "pascalgn/automerge-action@v0.16.4"
         env:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+        with:
+          mergeMethod: squash
+          mergeCommitMessage: "Auto-merged by GitHub Actions"

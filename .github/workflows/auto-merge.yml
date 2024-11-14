@@ -1,64 +1,32 @@
-name: Auto Merge on Approval
+name: Auto Merge
 
 on:
+  pull_request:
+    types:
+      - labeled
+      - unlabeled
+      - synchronize
+      - opened
+      - edited
+      - ready_for_review
+      - reopened
+      - unlocked
   pull_request_review:
-    types: [submitted]
+    types:
+      - submitted
+  check_suite:
+    types:
+      - completed
+  status: {}
 
 jobs:
-  auto-merge:
+  automerge:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
-      - name: Debug Event Payload
-        run: echo "${{ toJson(github.event) }}"
-
-      - name: Check for merge requirements
-        uses: actions/github-script@v6
-        with:
-          script: |
-            // Ensure pull_request is available in the context
-            const pullRequest = context.payload.pull_request;
-
-            if (!pullRequest) {
-              console.log("No pull request found.");
-              return;
-            }
-
-            // Fetch the reviews for the pull request
-            const { data: reviews } = await github.rest.pulls.listReviews({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: pullRequest.number,
-            });
-
-            // Count the number of approved reviews
-            const approvals = reviews.filter(review => review.state === "APPROVED").length;
-
-            // Define the required number of approvals
-            const requiredApprovals = 1; // Adjust this number based on your branch protection rule
-
-            // Fetch pull request details to check mergeability
-            const { data: prData } = await github.rest.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: pullRequest.number,
-            });
-
-            // Check if the PR is mergeable
-            if (!prData.mergeable) {
-              console.log('The pull request has merge conflicts.');
-              return;
-            }
-
-            // Merge the PR if approvals are met
-            if (approvals >= requiredApprovals) {
-              await github.rest.pulls.merge({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: pullRequest.number,
-              });
-              console.log("Pull request has been merged automatically!");
-            } else {
-              console.log(`Approvals: ${approvals}. Waiting for more approvals.`);
-            }
+      - name: Automerge
+        uses: "pascalgn/automerge-action@v0.16.4"
         env:
-          PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}  # Reference the secret here
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"

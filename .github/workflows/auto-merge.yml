@@ -23,9 +23,10 @@ jobs:
   automerge:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
       pull-requests: write
-      actions: write 
+      actions: write  # Added actions: write to ensure proper permissions
+
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -55,13 +56,6 @@ jobs:
             echo "Unexpected mergeable state: $mergeable"
             exit 1
           fi
-
-      - name: Debug Permission
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          echo "GITHUB_TOKEN permissions"
-          curl -H "Authorization: Bearer ${{ github.token }}" https://api.github.com/user
 
       - name: Automerge Script
         uses: actions/github-script@v6

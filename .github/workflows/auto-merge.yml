@@ -60,7 +60,7 @@ jobs:
       - name: Automerge Script
         uses: actions/github-script@v6
         with:
-          GH_TOKEN: ${{ github.token }}
+          github-token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
           script: |
             const { data: pr } = await github.rest.pulls.get({
               owner: context.repo.owner,

@@ -60,7 +60,6 @@ jobs:
       - name: Automerge Script
         uses: actions/github-script@v6
         with:
-          github-token: ${{ github.token }}
           script: |
             const { data: pr } = await github.rest.pulls.get({
               owner: context.repo.owner,
@@ -92,3 +91,5 @@ jobs:
             } else {
               console.log("Pull request is not mergeable.");
             }
+        env:
+         GH_TOKEN: ${{ github.token }}

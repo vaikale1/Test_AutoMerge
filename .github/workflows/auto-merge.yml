@@ -60,7 +60,7 @@ jobs:
       - name: Automerge Script
         uses: actions/github-script@v6
         with:
-          github-token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}  # Make sure this secret exists in your repository
+          github-token: ${{ github.token }}
           script: |
             const { data: pr } = await github.rest.pulls.get({
               owner: context.repo.owner,

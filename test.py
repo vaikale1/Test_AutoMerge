@@ -1,1 +1,1 @@
-printf("hello vai")
+printf("hello ptc")

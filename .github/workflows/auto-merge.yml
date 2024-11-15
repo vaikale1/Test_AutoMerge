@@ -80,7 +80,6 @@ jobs:
             }
 
       - name: Automerge Script
-        if: steps.approvals.outcome == 'success'
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}

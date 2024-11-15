@@ -42,7 +42,7 @@ jobs:
           echo "Mergeable state: $mergeable"
 
           # Handle the mergeable value
-          if [ "$mergeable" = "true" ]; then
+          if [ "$mergeable" = "MERGEABLE" ]; then
             echo "Pull request is mergeable."
           elif [ "$mergeable" = "false" ]; then
             echo "Pull request is not mergeable."

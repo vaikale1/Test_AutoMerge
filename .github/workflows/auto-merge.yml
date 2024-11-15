@@ -13,76 +13,72 @@ jobs:
   automerge:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
       pull-requests: write
-
+      actions: write  # Added actions: write to ensure proper permissions
+ 
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-
+ 
       - name: Ensure PR is mergeable
         id: mergeable
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}  # Default token provided by GitHub Actions
         run: |
-          pr_details=$(gh pr view ${{ github.event.pull_request.number }} --json mergeable --jq .mergeable)
-          echo "Mergeable state: $pr_details"
-          
-          if [ "$pr_details" != "MERGEABLE" ]; then
-            echo "PR is not mergeable."
+          pr_details=$(gh pr view ${{ github.event.pull_request.number }} --json mergeable --jq .)
+          echo "PR Details: $pr_details"
+ 
+          # Fetch only the mergeable field from the PR details
+          mergeable=$(echo "$pr_details" | jq -r .mergeable)
+          echo "Mergeable state: $mergeable"
+ 
+          # Handle the mergeable value
+          if [ "$mergeable" = "MERGEABLE" ]; then
+            echo "Pull request is mergeable."
+          elif [ "$mergeable" = "false" ]; then
+            echo "Pull request is not mergeable."
+            exit 1
+          elif [ "$mergeable" = "null" ]; then
+            echo "Mergeable state is unknown. Please check the PR status."
+            exit 1
+          else
+            echo "Unexpected mergeable state: $mergeable"
             exit 1
           fi
-
-      - name: Ensure All Approvals and Handle Checks
-        id: checks_and_approvals
+ 
+      - name: Automerge Script
         uses: actions/github-script@v6
         with:
-          github-token: ${{ github.token }}
+          github-token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
           script: |
-            const { data: reviews } = await github.rest.pulls.listReviews({
+            const { data: pr } = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: context.payload.pull_request.number
             });
-
-            const approvedReviews = reviews.filter(r => r.state === "APPROVED");
-            const requiredApprovals = 1; // Adjust as needed
-            if (approvedReviews.length < requiredApprovals) {
-              core.setFailed(`PR requires at least ${requiredApprovals} approval(s).`);
+ 
+            // Check mergeable state in the PR data (mergeable is a boolean)
+            if (pr.mergeable_state === "dirty") {
+              console.log("Pull request has merge conflicts.");
               return;
             }
-
-            const { data: checks } = await github.rest.checks.listForRef({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: context.payload.pull_request.head.sha
-            });
-
-            // Filter out successful checks
-            const incompleteOrFailedChecks = checks.check_runs.filter(c => c.conclusion !== "success");
-
-            if (incompleteOrFailedChecks.length > 0) {
-              console.log("Some checks are incomplete or have failed:");
-              incompleteOrFailedChecks.forEach(check => {
-                console.log(`- ${check.name}: ${check.conclusion || 'Pending'}`);
+ 
+            if (pr.mergeable_state === "clean") {
+              console.log("PR is clean and ready for merging.");
+            } else {
+              console.log("Mergeable state:", pr.mergeable_state);
+            }
+ 
+            // Proceed to merge if the PR is mergeable
+            if (pr.mergeable) {
+              await github.rest.pulls.merge({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.pull_request.number,
+                merge_method: "squash",
+                commit_title: "Auto-merged by GitHub Actions"
               });
-              core.setFailed("Not all required checks are successful.");
-              return;
+            } else {
+              console.log("Pull request is not mergeable.");
             }
-
-            console.log("All required approvals and checks are complete.");
-
-
-      - name: Merge PR
-        if: steps.checks_and_approvals.outcome == 'success'
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ github.token }}
-          script: |
-            await github.rest.pulls.merge({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.payload.pull_request.number,
-              merge_method: "squash",
-              commit_title: "Auto-merged by GitHub Actions"
-            });

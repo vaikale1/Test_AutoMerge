@@ -92,4 +92,4 @@ jobs:
               console.log("Pull request is not mergeable.");
             }
         env:
-         GH_TOKEN: ${{ github.token }}
+         GH_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN}}

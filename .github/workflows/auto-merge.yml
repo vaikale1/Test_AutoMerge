@@ -34,8 +34,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Fetch only the mergeable field since mergeable_state is not available
-          mergeable=$(gh pr view ${{ github.event.pull_request.number }} --json mergeable --jq .mergeable)
+          pr_details=$(gh pr view ${{ github.event.pull_request.number }} --json mergeable --jq .)
+          echo "PR Details: $pr_details"
+
+          # Fetch only the mergeable field from the PR details
+          mergeable=$(echo "$pr_details" | jq -r .mergeable)
           echo "Mergeable state: $mergeable"
 
           # Handle the mergeable value

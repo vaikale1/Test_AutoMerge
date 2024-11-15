@@ -34,8 +34,15 @@ jobs:
         env:
            GH_TOKEN: ${{ github.token }}  # Use the correct GITHUB_TOKEN environment variable
         run: |
-           mergeable=$(gh pr view ${{ github.event.pull_request.number }} --json mergeable --jq .mergeable)
-           echo "Mergeable state: $mergeable" 
+           pr_data=$(gh pr view ${{ github.event.pull_request.number }} --json mergeable,mergeable_state --jq .)
+           echo "Full PR data: $pr_data"  # Print the full response for debugging
+
+           # Extract the mergeable state
+           mergeable=$(echo "$pr_data" | jq -r .mergeable)
+           mergeable_state=$(echo "$pr_data" | jq -r .mergeable_state)
+          
+           echo "Mergeable state: $mergeable"
+           echo "Mergeable state (detailed): $mergeable_state"
            if [ "$mergeable" = "true" ]; then
              echo "Pull request is mergeable."
            elif [ "$mergeable" = "false" ]; then

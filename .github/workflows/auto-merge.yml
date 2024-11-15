@@ -32,7 +32,7 @@ jobs:
       - name: Ensure PR is mergeable
         id: mergeable
         env:
-          GH_TOKEN: ${{ github.token }} 
+          GH_TOKEN: ${{ secrets.GH_TOKEN }} 
         run: |
            mergeable=$(gh pr view ${{ github.event.pull_request.number }} --json mergeable --jq .mergeable)
 

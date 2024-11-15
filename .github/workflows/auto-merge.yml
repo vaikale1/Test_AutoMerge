@@ -36,18 +36,18 @@ jobs:
         run: |
            mergeable=$(gh pr view ${{ github.event.pull_request.number }} --json mergeable --jq .mergeable)
            echo "Mergeable state: $mergeable" 
-            if [ "$mergeable" = "true" ]; then
-            echo "Pull request is mergeable."
-            elif [ "$mergeable" = "false" ]; then
+           if [ "$mergeable" = "true" ]; then
+             echo "Pull request is mergeable."
+           elif [ "$mergeable" = "false" ]; then
              echo "Pull request is not mergeable."
              exit 1
-            elif [ "$mergeable" = "null" ]; then
+           elif [ "$mergeable" = "null" ]; then
              echo "Mergeable state is unknown. Please check the PR status."
              exit 1
-            else
+           else
              echo "Unexpected mergeable state."
              exit 1
-            fi
+           fi
       - name: Debug Permission
         env:
            GH_TOKEN: ${{ github.token }}  # Use the correct GITHUB_TOKEN environment variable

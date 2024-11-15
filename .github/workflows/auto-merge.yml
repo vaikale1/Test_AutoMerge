@@ -43,7 +43,7 @@ jobs:
             exit 1
           fi
 
-      - name: Ensure All Checks and Approvals
+      - name: Ensure All Approvals and Handle Checks
         id: checks_and_approvals
         uses: actions/github-script@v6
         with:
@@ -68,13 +68,20 @@ jobs:
               ref: context.payload.pull_request.head.sha
             });
 
-            const failingChecks = checks.check_runs.filter(c => c.conclusion !== "success");
-            if (failingChecks.length > 0) {
-              core.setFailed("Not all checks are successful.");
+            // Filter out successful checks
+            const incompleteOrFailedChecks = checks.check_runs.filter(c => c.conclusion !== "success");
+
+            if (incompleteOrFailedChecks.length > 0) {
+              console.log("Some checks are incomplete or have failed:");
+              incompleteOrFailedChecks.forEach(check => {
+                console.log(`- ${check.name}: ${check.conclusion || 'Pending'}`);
+              });
+              core.setFailed("Not all required checks are successful.");
               return;
             }
 
-            console.log("All required checks and approvals are complete.");
+            console.log("All required approvals and checks are complete.");
+
 
       - name: Merge PR
         if: steps.checks_and_approvals.outcome == 'success'

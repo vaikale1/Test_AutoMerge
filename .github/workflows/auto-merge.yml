@@ -32,30 +32,32 @@ jobs:
       - name: Ensure PR is mergeable
         id: mergeable
         env:
-          github-token: ${{ secrets.GITHUB_TOKEN }} 
+           GH_TOKEN: ${{ github.token }}  # Use the correct GITHUB_TOKEN environment variable
         run: |
            mergeable=$(gh pr view ${{ github.event.pull_request.number }} --json mergeable --jq .mergeable)
-           if[ "$mergeable" = "true" ]; then
-              echo "pull request mergeable"
-           fi
-           if [ "$mergeable" = "false" ]; then
+            if [ "$mergeable" = "true" ]; then
+            echo "Pull request is mergeable."
+            elif [ "$mergeable" = "false" ]; then
              echo "Pull request is not mergeable."
              exit 1
-           elif [ "$mergeable" = "null" ]; then
-            echo "Mergeable state is unknown. Please check the PR status."
-            exit 1
-           else
-            echo "Pull request is mergeable."
-           fi
+            elif [ "$mergeable" = "null" ]; then
+             echo "Mergeable state is unknown. Please check the PR status."
+             exit 1
+            else
+             echo "Unexpected mergeable state."
+             exit 1
+            fi
       - name: Debug Permission
+        env:
+           GH_TOKEN: ${{ github.token }}  # Use the correct GITHUB_TOKEN environment variable
         run: |
           echo "GITHUB_TOKEN permissions"
-          curl -H "Authorization: Bearer ${{secrets.GITHUB_TOKEN }}" https://api.github.com/user
+          curl -H "Authorization: Bearer ${{github.token }}" https://api.github.com/user
 
       - name: Automerge Script
         uses: actions/github-script@v6
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
           script: |
             const { data: pr } = await github.rest.pulls.get({
             owner: context.repo.owner,

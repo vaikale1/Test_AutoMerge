@@ -57,11 +57,6 @@ jobs:
             exit 1
           fi
 
-      - name: Delay Job (5 seconds)
-        run: |
-          echo "Sleeping for 5 seconds to retry..."
-          sleep 5
-
       - name: Ensure Required Approvals
         id: approvals
         uses: actions/github-script@v6

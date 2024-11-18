@@ -61,7 +61,7 @@ jobs:
         id: approvals
         uses: actions/github-script@v6
         with:
-          github-token: ${{  }}
+          github-token: ${{ github.token }}
           script: |
             const { data: reviews } = await github.rest.pulls.listReviews({
               owner: context.repo.owner,

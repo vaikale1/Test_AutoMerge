@@ -31,11 +31,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Delay Job (2 seconds)
-        run: |
-          echo "Sleeping for 2 seconds to retry..."
-          sleep 2
-
       - name: Ensure PR is mergeable
         id: mergeable
         env:

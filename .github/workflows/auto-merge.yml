@@ -38,11 +38,9 @@ jobs:
         run: |
           pr_details=$(gh pr view ${{ github.event.pull_request.number }} --json mergeable --jq .)
           echo "PR Details: $pr_details"
-
           # Fetch only the mergeable field from the PR details
           mergeable=$(echo "$pr_details" | jq -r .mergeable)
           echo "Mergeable state: $mergeable"
-
           # Handle the mergeable value
           if [ "$mergeable" = "MERGEABLE" ]; then
             echo "Pull request is mergeable."
@@ -56,7 +54,6 @@ jobs:
             echo "Unexpected mergeable state: $mergeable"
             exit 1
           fi
-
       - name: Ensure Required Approvals
         id: approvals
         uses: actions/github-script@v6
@@ -68,19 +65,14 @@ jobs:
               repo: context.repo.repo,
               pull_number: context.payload.pull_request.number
             });
-
             // Filter reviews for "APPROVED" state
             const approvedReviews = reviews.filter(r => r.state === "APPROVED");
             const requiredApprovals = 1; // Adjust based on repository rules
-
             console.log(`Found ${approvedReviews.length} approvals.`);
-
             if (approvedReviews.length < requiredApprovals) {
               core.setFailed(`PR requires at least ${requiredApprovals} approval(s).`);
             }
-
       - name: Automerge Script
-        if: steps.approvals.outcome == 'success'
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}

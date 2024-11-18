@@ -17,7 +17,10 @@ on:
   check_suite:
     types:
       - completed
-  status: {}
+  workflow_dispatch:
+
+env:
+  RUN_COUNT: 0  # Default run count
 
 jobs:
   automerge:
@@ -25,31 +28,37 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-      actions: write  # Added actions: write to ensure proper permissions
+      actions: write
 
     steps:
+      - name: Setup Run Count
+        id: setup
+        run: |
+          if [ "${{ github.event.inputs.run_count }}" ]; then
+            echo "Current run count: ${{ github.event.inputs.run_count }}"
+            echo "run_count=${{ github.event.inputs.run_count }}" >> $GITHUB_ENV
+          else
+            echo "Initializing run count to 1"
+            echo "run_count=1" >> $GITHUB_ENV
+          fi
+
+      - name: Log Run Count
+        run: echo "This is run #${{ env.run_count }}."
+
       - name: Checkout
         uses: actions/checkout@v3
-
-      - name: Delay Job (2 seconds)
-        run: |
-          echo "Sleeping for 2 seconds to retry..."
-          sleep 2
-
 
       - name: Ensure PR is mergeable
         id: mergeable
         env:
-          GH_TOKEN: ${{ github.token }}  # Default token provided by GitHub Actions
+          GH_TOKEN: ${{ github.token }}
         run: |
           pr_details=$(gh pr view ${{ github.event.pull_request.number }} --json mergeable --jq .)
           echo "PR Details: $pr_details"
 
-          # Fetch only the mergeable field from the PR details
           mergeable=$(echo "$pr_details" | jq -r .mergeable)
           echo "Mergeable state: $mergeable"
 
-          # Handle the mergeable value
           if [ "$mergeable" = "MERGEABLE" ]; then
             echo "Pull request is mergeable."
           elif [ "$mergeable" = "false" ]; then
@@ -75,9 +84,8 @@ jobs:
               pull_number: context.payload.pull_request.number
             });
 
-            // Filter reviews for "APPROVED" state
             const approvedReviews = reviews.filter(r => r.state === "APPROVED");
-            const requiredApprovals = 1; // Adjust based on repository rules
+            const requiredApprovals = 1;
 
             console.log(`Found ${approvedReviews.length} approvals.`);
 
@@ -96,7 +104,6 @@ jobs:
               pull_number: context.payload.pull_request.number
             });
 
-            // Check mergeable state in the PR data (mergeable is a boolean)
             if (pr.mergeable_state === "dirty") {
               console.log("Pull request has merge conflicts.");
               return;
@@ -108,7 +115,6 @@ jobs:
               console.log("Mergeable state:", pr.mergeable_state);
             }
 
-            // Proceed to merge if the PR is mergeable
             if (pr.mergeable) {
               await github.rest.pulls.merge({
                 owner: context.repo.owner,
@@ -120,3 +126,20 @@ jobs:
             } else {
               console.log("Pull request is not mergeable.");
             }
+
+      - name: Trigger Workflow Again (If Needed)
+        if: ${{ env.run_count < 3 }}
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          script: |
+            console.log(`Triggering workflow for run #${parseInt(process.env.run_count) + 1}`);
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'Auto Merge.yml',
+              ref: context.ref,
+              inputs: {
+                run_count: parseInt(process.env.run_count) + 1
+              }
+            });

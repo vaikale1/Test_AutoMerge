@@ -136,18 +136,5 @@ jobs:
             } else {
               console.log("Pull request is not mergeable.");
             }
-      - name: Retry Automerge if approvals failed (once)
-        if: failure() && steps.approvals.outcome == 'failure' && github.event.client_payload.retry_count != '1'
-        run: |
-          echo "The PR did not have sufficient approvals. Retrying..."
-          # Optional: Wait some time before retrying (to allow for approvals to be added)
-          sleep 5m  # Adjust this sleep time as necessary
-          
-          # Re-trigger the workflow using GitHub API
-          curl -X POST \
-            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            --data '{"event_type":"rerun_approval_failed","client_payload":{"retry_count":"1"}}' \
-            https://api.github.com/repos/${{ github.repository }}/dispatches
-        continue-on-error: true
+      
         

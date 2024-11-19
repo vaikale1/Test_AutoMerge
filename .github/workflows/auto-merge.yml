@@ -40,8 +40,6 @@ jobs:
             echo "run_count=1" >> $GITHUB_ENV
           fi
 
-      - name: Log Run Count
-        run: echo "This is run #${{ env.run_count }}."
         
       - name: Checkout
         uses: actions/checkout@v3

@@ -28,18 +28,6 @@ jobs:
       actions: write  # Added actions: write to ensure proper permissions
 
     steps:
-
-      - name: Setup Run Count
-        id: setup
-        run: |
-          if [ "${{ github.event.inputs.run_count }}" ]; then
-            echo "Current run count: ${{ github.event.inputs.run_count }}"
-            echo "run_count=${{ github.event.inputs.run_count }}" >> $GITHUB_ENV
-          else
-            echo "Initializing run count to 1"
-            echo "run_count=1" >> $GITHUB_ENV
-          fi
-
         
       - name: Checkout
         uses: actions/checkout@v3
@@ -128,21 +116,6 @@ jobs:
               console.log("Pull request is not mergeable.");
             }
 
-      - name: Trigger Workflow Again (If Needed)
-        if: ${{ env.run_count < 3 }}
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-          script: |
-            console.log(`Triggering workflow for run #${parseInt(process.env.run_count) + 1}`);
-            await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'Auto Merge.yml',
-              ref: context.ref,
-              inputs: {
-                run_count: parseInt(process.env.run_count) + 1
-              }
-            });
+      
       
         

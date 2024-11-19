@@ -25,7 +25,7 @@ jobs:
       - name: Ensure PR is mergeable
         id: mergeable
         env:
-          GH_TOKEN: ${{ github.token }}  # Default token provided by GitHub Actions
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Default token provided by GitHub Actions
         run: |
           pr_details=$(gh pr view ${{ github.event.pull_request.number }} --json mergeable --jq .)
           echo "PR Details: $pr_details"
@@ -52,7 +52,7 @@ jobs:
         id: approvals
         uses: actions/github-script@v6
         with:
-          github-token: ${{ github.token }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const { data: reviews } = await github.rest.pulls.listReviews({
               owner: context.repo.owner,

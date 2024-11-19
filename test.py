@@ -1,3 +1,3 @@
 
-printf("hello neha pisal heyy vai come onnnnn , go ptc.....you can do itt!!   ")
+printf("hello neha pisal heyy vaish come onnnnn , go ptc.....you can do itt!!   ")
 

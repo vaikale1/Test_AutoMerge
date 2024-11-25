@@ -1,13 +1,11 @@
 name: Auto Merge
 
 on:
-  pull_request_review:
-    types:
-      - submitted
-    check_suite:
-      types:
-      - completed
-
+  workflow_run:
+   workflows:
+    - compilation
+   types:
+    - success
   status: {}
 
 jobs:

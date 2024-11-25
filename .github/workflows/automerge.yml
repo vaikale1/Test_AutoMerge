@@ -19,6 +19,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Check PR details
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const pr_number = context.payload.pull_request ? context.payload.pull_request.number : null;
+            if (pr_number) {
+              console.log(`PR number: ${pr_number}`);
+            } else {
+              console.log('This workflow is not triggered by a pull request event.');
+            }
       - name: Ensure PR is mergeable
         id: mergeable
         env:

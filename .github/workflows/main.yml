@@ -23,6 +23,11 @@ jobs:
   trigger_build:
     runs-on: ubuntu-latest
     steps:
+      - name: Debug GitHub Context (to check variables)
+        run: |
+          echo "head_ref: ${{ github.head_ref }}"
+          echo "ref: ${{ github.ref }}"
+          
       - name: Trigger Build Workflow via API
         run: |
           curl -X POST \

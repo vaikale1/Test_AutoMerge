@@ -20,7 +20,6 @@ on:
   status: {}
 
 jobs:
-  jobs:
   trigger_build:
     runs-on: ubuntu-latest
     steps:
@@ -41,5 +40,5 @@ jobs:
           curl -X POST \
           -H "Authorization: token ${{ secrets.PERSONAL_ACCESS_TOKEN }}" \
           -H "Accept: application/vnd.github.v3+json" \
-          https://api.github.com/repos/${{ github.repository }}/actions/workflows/build.yml/dispatches \
+          https://api.github.com/repos/${{ github.repository }}/actions/workflows/automerge.yml/dispatches \
           -d '{"ref":"refs/heads/${{ github.head_ref }}"}'

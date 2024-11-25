@@ -30,7 +30,7 @@ jobs:
           ref: ${{ github.ref }}
 
   trigger_automerge:
-    needs: trigger_build_and_test
+    needs: trigger_build_and_test  # This ensures the next job runs only after the previous one completes
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Auto Merge Workflow

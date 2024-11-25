@@ -5,7 +5,7 @@ on:
    workflows:
     - compilation
    types:
-    - success
+    - completed
   status: {}
 
 jobs:

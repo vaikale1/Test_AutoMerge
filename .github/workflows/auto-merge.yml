@@ -3,9 +3,9 @@ name: Auto Merge
 on:
   workflow_run:
    workflows:
-    - compilation
+    - CI Workflow
    types:
-    - completed
+    - success
   status: {}
 
 jobs:

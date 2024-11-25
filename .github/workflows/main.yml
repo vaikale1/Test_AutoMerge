@@ -1,0 +1,40 @@
+name: Main Workflow
+
+on:
+  pull_request_target:
+    types:
+      - labeled
+      - unlabeled
+      - synchronize
+      - opened
+      - edited
+      - ready_for_review
+      - reopened
+      - unlocked
+  pull_request_review:
+    types:
+      - submitted
+  check_suite:
+    types:
+      - completed
+  status: {}
+
+jobs:
+  trigger_build_and_test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Build and Test Workflow
+        uses: peter-evans/workflow-dispatch@v1
+        with:
+          workflow: "build.yml"  # Name of your build workflow file
+          ref: ${{ github.ref }}
+
+  trigger_automerge:
+    needs: trigger_build_and_test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Auto Merge Workflow
+        uses: peter-evans/workflow-dispatch@v1
+        with:
+          workflow: "automerge.yml"  # Name of your automerge workflow file
+          ref: ${{ github.ref }}

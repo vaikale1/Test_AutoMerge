@@ -5,8 +5,7 @@ on:
    workflows:
     - CI Workflow
    types:
-    - success
-  status: {}
+    - completed
 
 jobs:
   automerge:

@@ -27,6 +27,7 @@ jobs:
         run: |
           echo "head_ref: ${{ github.head_ref }}"
           echo "ref: ${{ github.ref }}"
+          echo "PR source branch: ${{ github.event.pull_request.head.ref }}"
           
       - name: Trigger Build Workflow via API
         run: |

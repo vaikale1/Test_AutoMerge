@@ -1,2 +1,3 @@
-hi there how are you
-hey
+# cicdDemo 
+
+by default all jobs run in parallel

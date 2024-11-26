@@ -46,6 +46,7 @@ jobs:
           build_status="in_progress"
           while [ "$build_status" != "success" ]; do
             echo "Waiting for build workflow to complete..."
+            echo "$build_status"
             # Check the status of the build workflow
             build_status=$(curl -s \
               -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \

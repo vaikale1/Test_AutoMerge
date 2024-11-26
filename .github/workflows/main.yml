@@ -39,33 +39,66 @@ jobs:
 
           
   wait_for_build_completion:
-    needs: trigger_build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Wait for Build Workflow to Complete
-        run: |
-          build_status="in_progress"
-          while [ "$build_status" != "completed" ]; do
-            echo "Waiting for build workflow to complete..."
-            build_status=$(curl -s \
-              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              -H "Accept: application/vnd.github.v3+json" \
-              https://api.github.com/repos/${{ github.repository }}/actions/runs \
-              | jq -r ".workflow_runs[] | select(.head_sha == \"${{ github.sha }}\") | .status")
-            sleep 10  # Check every 10 seconds
-          done
-          echo "Build workflow completed with status: $build_status"
+   needs: trigger_build
+   runs-on: ubuntu-latest
+   steps:
+    - name: Debug GitHub Context (to check commit SHA)
+      run: |
+        echo "Commit SHA: ${{ github.sha }}"
 
-          # Check the conclusion (success or failure)
-          build_conclusion=$(curl -s \
+    - name: Wait for Build Workflow to Complete
+      run: |
+        build_status="in_progress"
+        build_run_id=""
+        
+        # Find the correct build workflow run ID based on the current commit SHA
+        build_run_id=$(curl -s \
+          -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          -H "Accept: application/vnd.github.v3+json" \
+          https://api.github.com/repos/${{ github.repository }}/actions/runs \
+          | jq -r ".workflow_runs[] | select(.head_sha == \"${{ github.sha }}\") | .id")
+
+        if [ -z "$build_run_id" ]; then
+          echo "Build run ID not found for commit ${GITHUB_SHA}. Aborting."
+          exit 1
+        fi
+        
+        echo "Found build run ID: $build_run_id"
+
+        # Poll the build status
+        while [ "$build_status" != "completed" ]; do
+          echo "Waiting for build workflow to complete..."
+          
+          # Get the status of the build workflow
+          build_status=$(curl -s \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/${{ github.repository }}/actions/runs \
-            | jq -r ".workflow_runs[] | select(.head_sha == \"${{ github.sha }}\") | .conclusion")
-          if [ "$build_conclusion" != "success" ]; then
-            echo "Build workflow failed, aborting the automerge process."
-            exit 1
+            https://api.github.com/repos/${{ github.repository }}/actions/runs/$build_run_id \
+            | jq -r ".status")
+
+          echo "Current build status: $build_status"
+          
+          if [ "$build_status" == "completed" ]; then
+            break
           fi
+
+          sleep 10  # Check every 10 seconds
+        done
+
+        # Check the conclusion of the workflow once it is completed
+        build_conclusion=$(curl -s \
+          -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          -H "Accept: application/vnd.github.v3+json" \
+          https://api.github.com/repos/${{ github.repository }}/actions/runs/$build_run_id \
+          | jq -r ".conclusion")
+
+        echo "Build workflow completed with status: $build_status and conclusion: $build_conclusion"
+
+        if [ "$build_conclusion" != "success" ]; then
+          echo "Build workflow failed, aborting the automerge process."
+          exit 1
+        fi
+
 
   trigger_automerge:
     needs: wait_for_build_completion  # This ensures the next job runs only after the previous one completes

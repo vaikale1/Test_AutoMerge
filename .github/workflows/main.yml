@@ -20,7 +20,7 @@ on:
   status: {}
 
 jobs:
-  # Trigger the build workflow and monitor its status
+  # 1. Trigger the build workflow
   trigger_build:
     runs-on: ubuntu-latest
     steps:
@@ -32,13 +32,18 @@ jobs:
 
       - name: Trigger Build Workflow via API
         run: |
-          # Trigger the build workflow using GitHub API
-          curl -X POST \
+          response=$(curl -X POST \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/repos/${{ github.repository }}/actions/workflows/build.yml/dispatches \
-            -d '{"ref":"refs/heads/${{ github.event.pull_request.head.ref }}"}'
-
+            -d '{"ref":"refs/heads/${{ github.event.pull_request.head.ref }}"}')
+          echo "Build trigger response: $response"
+          
+  # 2. Wait for Build Workflow to Complete
+  wait_for_build:
+    needs: trigger_build  # Ensures this job runs after `trigger_build` completes
+    runs-on: ubuntu-latest
+    steps:
       - name: Wait for Build Workflow to Complete
         run: |
           echo "Waiting for build workflow to complete..."
@@ -52,15 +57,14 @@ jobs:
               -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
               -H "Accept: application/vnd.github.v3+json" \
               https://api.github.com/repos/${{ github.repository }}/actions/runs)
-
+            
             # Get the build run ID based on the current commit SHA
             build_run_id=$(echo "$workflow_runs" | jq -r ".workflow_runs[] | select(.head_sha == \"${{ github.sha }}\") | .id")
-
             if [ -z "$build_run_id" ]; then
               echo "Build run ID not found for commit ${{ github.sha }}. Aborting."
               exit 1
             fi
-            
+
             echo "Build Run ID: $build_run_id"
             
             # Check the status of the build run
@@ -68,7 +72,7 @@ jobs:
               -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
               -H "Accept: application/vnd.github.v3+json" \
               https://api.github.com/repos/${{ github.repository }}/actions/runs/$build_run_id)
-
+            
             # Extract the build status using jq
             build_status=$(echo "$build_status" | jq -r ".status")
             echo "Current build status: $build_status"
@@ -101,16 +105,15 @@ jobs:
             echo "Build workflow failed, aborting the automerge process."
             exit 1
           fi
-
-  # Automerge job, only runs if `trigger_build` succeeds
+          
+  # 3. Trigger Automerge Workflow
   trigger_automerge:
-    needs: trigger_build  # This ensures it only runs after the `trigger_build` job succeeds
+    needs: wait_for_build  # Ensures this job runs after `wait_for_build` completes
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Automerge Workflow using GitHub API
         run: |
           echo "Triggering the automerge workflow after the build completes successfully."
-
           # Trigger the automerge workflow using GitHub API
           curl -X POST \
             -H "Authorization: token ${{ secrets.PERSONAL_ACCESS_TOKEN }}" \

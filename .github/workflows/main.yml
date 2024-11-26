@@ -37,73 +37,62 @@ jobs:
           https://api.github.com/repos/${{ github.repository }}/actions/workflows/build.yml/dispatches \
           -d '{"ref":"refs/heads/${{ github.event.pull_request.head.ref }}"}'
 
-          
-  wait_for_build_completion:
-   needs: trigger_build
-   runs-on: ubuntu-latest
-   steps:
-    - name: Debug GitHub Context (to check commit SHA)
-      run: |
-        echo "Commit SHA: ${{ github.sha }}"
-
-    - name: Wait for Build Workflow to Complete
-      run: |
-        build_status="in_progress"
-        build_run_id=""
-        
-        # Find the correct build workflow run ID based on the current commit SHA
-        build_run_id=$(curl -s \
-          -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-          -H "Accept: application/vnd.github.v3+json" \
-          https://api.github.com/repos/${{ github.repository }}/actions/runs \
-          | jq -r ".workflow_runs[] | select(.head_sha == \"${{ github.sha }}\") | .id")
-
-        if [ -z "$build_run_id" ]; then
-          echo "Build run ID not found for commit ${GITHUB_SHA}. Aborting."
-          exit 1
-        fi
-        
-        echo "Found build run ID: $build_run_id"
-
-        # Poll the build status
-        while [ "$build_status" != "completed" ]; do
+  trigger_automerge:
+    needs: trigger_build  # This ensures the next job runs only after the previous one completes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Build Workflow to Complete
+        run: |
           echo "Waiting for build workflow to complete..."
           
-          # Get the status of the build workflow
-          build_status=$(curl -s \
+          # Polling to check the status of the build workflow
+          build_status="in_progress"
+          while [ "$build_status" != "completed" ]; do
+            # Fetch the workflow runs related to the current commit
+            workflow_runs=$(curl -s \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              https://api.github.com/repos/${{ github.repository }}/actions/runs)
+            
+            # Log the workflow runs to debug
+            echo "Workflow Runs: $workflow_runs"
+            
+            # Get the build run ID based on the current commit SHA
+            build_run_id=$(echo "$workflow_runs" | jq -r ".workflow_runs[] | select(.head_sha == \"${{ github.sha }}\") | .id")
+            
+            if [ -z "$build_run_id" ]; then
+              echo "Build run ID not found for commit ${{ github.sha }}. Aborting."
+              exit 1
+            fi
+            
+            # Check the status of the build run
+            build_status=$(curl -s \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              https://api.github.com/repos/${{ github.repository }}/actions/runs/$build_run_id \
+              | jq -r ".status")
+            
+            # Log the build status every 10 seconds
+            echo "Current build status: $build_status"
+            
+            sleep 10  # Wait for 10 seconds before polling again
+          done
+
+          # Fetch the conclusion of the build workflow once it's completed
+          build_conclusion=$(curl -s \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/repos/${{ github.repository }}/actions/runs/$build_run_id \
-            | jq -r ".status")
-
-          echo "Current build status: $build_status"
+            | jq -r ".conclusion")
           
-          if [ "$build_status" == "completed" ]; then
-            break
+          echo "Build workflow completed with status: $build_status and conclusion: $build_conclusion"
+          
+          # Ensure the build was successful before proceeding
+          if [ "$build_conclusion" != "success" ]; then
+            echo "Build workflow failed, aborting the automerge process."
+            exit 1
           fi
 
-          sleep 10  # Check every 10 seconds
-        done
-
-        # Check the conclusion of the workflow once it is completed
-        build_conclusion=$(curl -s \
-          -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-          -H "Accept: application/vnd.github.v3+json" \
-          https://api.github.com/repos/${{ github.repository }}/actions/runs/$build_run_id \
-          | jq -r ".conclusion")
-
-        echo "Build workflow completed with status: $build_status and conclusion: $build_conclusion"
-
-        if [ "$build_conclusion" != "success" ]; then
-          echo "Build workflow failed, aborting the automerge process."
-          exit 1
-        fi
-
-
-  trigger_automerge:
-    needs: wait_for_build_completion  # This ensures the next job runs only after the previous one completes
-    runs-on: ubuntu-latest
-    steps:
       - name: Trigger Automerge Workflow using GitHub API
         run: |
           curl -X POST \

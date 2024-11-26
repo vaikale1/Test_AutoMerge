@@ -48,6 +48,8 @@ jobs:
          if [[ "$http_code" != "201" && "$http_code" != "204" ]]; then
             echo "Failed to trigger build workflow. Status code: $http_code"
             exit 1
+         else
+           echo "Build workflow triggered successfully with status code $http_code."
          fi
           
   # 2. Wait for Build Workflow to Complete

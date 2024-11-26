@@ -1,13 +1,7 @@
 name: Build and Test
 
 on:
-  workflow_dispatch:
-  pull_request:
-    types:
-      - opened
-      - synchronize
-      - edited
-      - reopened  
+  workflow_dispatch: 
 
 jobs:
   build:

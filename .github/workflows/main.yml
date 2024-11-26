@@ -20,6 +20,7 @@ on:
   status: {}
 
 jobs:
+  # Trigger the build workflow and monitor its status
   trigger_build:
     runs-on: ubuntu-latest
     steps:
@@ -28,62 +29,96 @@ jobs:
           echo "head_ref: ${{ github.head_ref }}"
           echo "ref: ${{ github.ref }}"
           echo "PR source branch: ${{ github.event.pull_request.head.ref }}"
-          
+
       - name: Trigger Build Workflow via API
         run: |
+          # Trigger the build workflow using GitHub API
           curl -X POST \
-          -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-          -H "Accept: application/vnd.github.v3+json" \
-          https://api.github.com/repos/${{ github.repository }}/actions/workflows/build.yml/dispatches \
-          -d '{"ref":"refs/heads/${{ github.event.pull_request.head.ref }}"}'
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/actions/workflows/build.yml/dispatches \
+            -d '{"ref":"refs/heads/${{ github.event.pull_request.head.ref }}"}'
 
-  wait_for_build_completion:
-    needs: trigger_build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Wait for Build Workflow to complete
+      - name: Wait for Build Workflow to Complete
         run: |
+          echo "Waiting for build workflow to complete..."
           build_status="in_progress"
-          while [ "$build_status" != "success" ]; do
-            echo "Waiting for build workflow to complete..."
-            echo "$build_status"
-            # Check the status of the build workflow
+          retries=0
+          max_retries=30  # Max retries to avoid infinite loop (30 retries, 10 seconds each = 5 minutes)
+          
+          while [ "$build_status" != "completed" ] && [ $retries -lt $max_retries ]; do
+            # Get the workflow runs related to the current commit
+            workflow_runs=$(curl -s \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              https://api.github.com/repos/${{ github.repository }}/actions/runs)
+
+            # Get the build run ID based on the current commit SHA
+            build_run_id=$(echo "$workflow_runs" | jq -r ".workflow_runs[] | select(.head_sha == \"${{ github.sha }}\") | .id")
+
+            if [ -z "$build_run_id" ]; then
+              echo "Build run ID not found for commit ${{ github.sha }}. Aborting."
+              exit 1
+            fi
+            
+            echo "Build Run ID: $build_run_id"
+            
+            # Check the status of the build run
             build_status=$(curl -s \
               -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
               -H "Accept: application/vnd.github.v3+json" \
-              https://api.github.com/repos/${{ github.repository }}/actions/runs \
-              | jq )
-            buildf_status=$( echo "$build_status"
-              | jq -r ".workflow_runs[] | select(.head_sha == \"${{ github.sha }}\") | .status")
-              echo "$build_status"
-              echo "$buildf_status"
-            sleep 10  # Check every 10 seconds
+              https://api.github.com/repos/${{ github.repository }}/actions/runs/$build_run_id)
+
+            # Extract the build status using jq
+            build_status=$(echo "$build_status" | jq -r ".status")
+            echo "Current build status: $build_status"
+            
+            if [ "$build_status" == "queued" ]; then
+              echo "Build is queued, waiting for it to start..."
+            fi
+            
+            # Sleep for 10 seconds before polling again
+            sleep 10
+            retries=$((retries + 1))
           done
-          echo "Build workflow completed with status: $build_status"
-          # Optionally check the conclusion (success or failure)
+          
+          if [ $retries -ge $max_retries ]; then
+            echo "Build workflow did not complete in time, aborting automerge process."
+            exit 1
+          fi
+          
+          # Once build completes, check the conclusion
           build_conclusion=$(curl -s \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/${{ github.repository }}/actions/runs \
-            | jq -r ".workflow_runs[] | select(.head_sha == \"${{ github.sha }}\") | .conclusion")
+            https://api.github.com/repos/${{ github.repository }}/actions/runs/$build_run_id \
+            | jq -r ".conclusion")
+          
+          echo "Build workflow completed with status: $build_status and conclusion: $build_conclusion"
+          
+          # Ensure the build was successful before proceeding
           if [ "$build_conclusion" != "success" ]; then
             echo "Build workflow failed, aborting the automerge process."
             exit 1
           fi
-          
+
+  # Automerge job, only runs if `trigger_build` succeeds
   trigger_automerge:
-    needs: wait_for_build_completion  # This ensures the next job runs only after the previous one completes
+    needs: trigger_build  # This ensures it only runs after the `trigger_build` job succeeds
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Automerge Workflow using GitHub API
         run: |
+          echo "Triggering the automerge workflow after the build completes successfully."
+
+          # Trigger the automerge workflow using GitHub API
           curl -X POST \
-          -H "Authorization: token ${{ secrets.PERSONAL_ACCESS_TOKEN }}" \
-          -H "Accept: application/vnd.github.v3+json" \
-          https://api.github.com/repos/${{ github.repository }}/actions/workflows/automerge.yml/dispatches \
-          -d '{
-                "ref": "refs/heads/${{ github.event.pull_request.head.ref }}", 
-                "inputs": {
-                  "pr_number": "${{ github.event.pull_request.number }}"
-                }
-              }'
+            -H "Authorization: token ${{ secrets.PERSONAL_ACCESS_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/actions/workflows/automerge.yml/dispatches \
+            -d '{
+                  "ref": "refs/heads/${{ github.event.pull_request.head.ref }}", 
+                  "inputs": {
+                    "pr_number": "${{ github.event.pull_request.number }}"
+                  }
+                }'

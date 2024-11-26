@@ -30,13 +30,10 @@ jobs:
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/repos/${{ github.repository }}/actions/workflows/build.yml/dispatches \
             -d '{"ref":"refs/heads/${{ github.event.pull_request.head.ref }}"}')
-
           http_code=$(echo "$response" | tail -n 1)
           body=$(echo "$response" | head -n -1)
-
           echo "Response Status Code: $http_code"
           echo "Response Body: $body"
-
           if [[ "$http_code" != "201" && "$http_code" != "204" ]]; then
             echo "Failed to trigger build workflow. Status code: $http_code"
             exit 1
@@ -50,77 +47,80 @@ jobs:
           build_status="queued"
           retries=0
           max_retries=30  # Max retries
-          retry_delay=15  # Delay in seconds between retries
+          retry_delay=30  # Delay in seconds between retries
+
+          # Variable to track if build run is found
+          build_run_id=""
 
           while [ "$build_status" != "completed" ] && [ $retries -lt $max_retries ]; do
             echo "Fetching workflow runs for the repository..."
-      
-            # Fetch all workflow runs for the repository (including build.yml)
+            
+            # Fetch all workflow runs for the repository
             workflow_runs=$(curl -s \
-           -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-           -H "Accept: application/vnd.github.v3+json" \
-           "https://api.github.com/repos/${{ github.repository }}/actions/runs")
-      
-           echo "Workflow Runs: $workflow_runs"  # Debugging line to print all workflow runs
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              "https://api.github.com/repos/${{ github.repository }}/actions/runs")
+            
+            echo "Workflow Runs: $workflow_runs"  # Debugging line to print all workflow runs
 
-           # Look for the build run ID corresponding to the current commit
-           build_run_id=$(echo "$workflow_runs" | jq -r ".workflow_runs[] | select(.head_sha == \"${{ github.sha }}\") | .id")
+            # Look for the build run ID corresponding to the current commit
+            build_run_id=$(echo "$workflow_runs" | jq -r ".workflow_runs[] | select(.head_sha == \"${{ github.sha }}\") | .id")
 
-           if [ -z "$build_run_id" ]; then
-             echo "Build run ID not found for commit ${{ github.sha }}. Retrying..."
-             retries=$((retries + 1))
-             sleep $retry_delay
-             continue
-          fi
- 
-          echo "Found Build Run ID: $build_run_id"
-      
-          # Fetch the status of the build run
-          build_run_details=$(curl -s \
-           -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-           -H "Accept: application/vnd.github.v3+json" \
-           "https://api.github.com/repos/${{ github.repository }}/actions/runs/$build_run_id")
-      
-          echo "Build Run Details: $build_run_details"  # Debugging line to print full run details
-      
-          # Extract the status of the build workflow (queued, in_progress, completed)
-          build_status=$(echo "$build_run_details" | jq -r ".status")
-          echo "Current build status: $build_status"
+            if [ -z "$build_run_id" ]; then
+              echo "Build run ID not found for commit ${{ github.sha }}. Retrying..."
+              retries=$((retries + 1))
+              sleep $retry_delay
+              continue
+            fi
 
-          # Handle different statuses
-          if [ "$build_status" == "queued" ]; then
-            echo "Build is queued, waiting for it to start..."
-          elif [ "$build_status" == "in_progress" ]; then
-            echo "Build is in progress, waiting for it to complete..."
-          elif [ "$build_status" == "completed" ]; then
-            echo "Build has completed."
-          fi
+            echo "Found Build Run ID: $build_run_id"
+            
+            # Fetch the status of the build run
+            build_run_details=$(curl -s \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              "https://api.github.com/repos/${{ github.repository }}/actions/runs/$build_run_id")
+            
+            echo "Build Run Details: $build_run_details"  # Debugging line to print full run details
+            
+            # Extract the status of the build workflow (queued, in_progress, completed)
+            build_status=$(echo "$build_run_details" | jq -r ".status")
+            echo "Current build status: $build_status"
 
-          # Wait before the next polling attempt
-          sleep $retry_delay
-          retries=$((retries + 1))
+            # Handle different statuses
+            if [ "$build_status" == "queued" ]; then
+              echo "Build is queued, waiting for it to start..."
+            elif [ "$build_status" == "in_progress" ]; then
+              echo "Build is in progress, waiting for it to complete..."
+            elif [ "$build_status" == "completed" ]; then
+              echo "Build has completed."
+            fi
+
+            # If build is completed, check the conclusion
+            if [ "$build_status" == "completed" ]; then
+              build_conclusion=$(echo "$build_run_details" | jq -r ".conclusion")
+              echo "Build workflow completed with conclusion: $build_conclusion"
+
+              # If the build succeeded, trigger the automerge workflow
+              if [ "$build_conclusion" == "success" ]; then
+                echo "Build successful! Triggering automerge workflow."
+                break
+              else
+                echo "Build failed. Not triggering automerge."
+                exit 1
+              fi
+            fi
+
+            # Wait before the next polling attempt
+            sleep $retry_delay
+            retries=$((retries + 1))
           done
+
           # If retries exceeded, abort
           if [ $retries -ge $max_retries ]; then
             echo "Build workflow did not complete in time, aborting automerge process."
             exit 1
-          fi
-
-          # After build completes, check the conclusion (success/failure)
-          build_conclusion=$(curl -s \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/${{ github.repository }}/actions/runs/$build_run_id \
-            | jq -r ".conclusion")
           
-          echo "Build workflow completed with conclusion: $build_conclusion"
-          
-          # If build was successful, trigger the automerge workflow
-          if [ "$build_conclusion" == "success" ]; then
-            echo "Build successful! Triggering automerge workflow."
-
-          
-  # 3. Trigger Automerge Workflow
   trigger_automerge:
     needs: trigger_build
     runs-on: ubuntu-latest

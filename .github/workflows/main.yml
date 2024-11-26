@@ -67,7 +67,7 @@ jobs:
           fi
           
   trigger_automerge:
-    needs: trigger_build  # This ensures the next job runs only after the previous one completes
+    needs: wait_for_build_completion  # This ensures the next job runs only after the previous one completes
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Automerge Workflow using GitHub API

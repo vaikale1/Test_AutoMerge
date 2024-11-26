@@ -32,7 +32,7 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const pr_number = ${{ github.event.inputs.pr_number }};
+            const pr_number = "${{ github.event.inputs.pr_number }}";
             if (pr_number) {
               console.log(`PR number: ${pr_number}`);
             } else {

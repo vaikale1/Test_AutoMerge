@@ -30,6 +30,11 @@ jobs:
               console.log('This workflow is not triggered by a pull request event.');
             }
             
+      - name: Check if PR mergeged
+        if: github.event.pull_request.merged == true
+        run: |
+             echo The PR was merged
+      
       - name: Ensure PR is mergeable
         id: mergeable
         env:

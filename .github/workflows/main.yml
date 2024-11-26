@@ -38,8 +38,37 @@ jobs:
           -d '{"ref":"refs/heads/${{ github.event.pull_request.head.ref }}"}'
 
           
+  wait_for_build_completion:
+    needs: trigger_build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Build Workflow to Complete
+        run: |
+          build_status="in_progress"
+          while [ "$build_status" != "completed" ]; do
+            echo "Waiting for build workflow to complete..."
+            build_status=$(curl -s \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              https://api.github.com/repos/${{ github.repository }}/actions/runs \
+              | jq -r ".workflow_runs[] | select(.head_sha == \"${{ github.sha }}\") | .status")
+            sleep 10  # Check every 10 seconds
+          done
+          echo "Build workflow completed with status: $build_status"
+
+          # Check the conclusion (success or failure)
+          build_conclusion=$(curl -s \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/actions/runs \
+            | jq -r ".workflow_runs[] | select(.head_sha == \"${{ github.sha }}\") | .conclusion")
+          if [ "$build_conclusion" != "success" ]; then
+            echo "Build workflow failed, aborting the automerge process."
+            exit 1
+          fi
+
   trigger_automerge:
-    needs: trigger_build  # This ensures the next job runs only after the previous one completes
+    needs: wait_for_build_completion  # This ensures the next job runs only after the previous one completes
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Automerge Workflow using GitHub API

@@ -6,7 +6,12 @@ on:
     types:
       - completed
   workflow_dispatch:  # This allows manual trigger via API or GitHub UI
-  
+    inputs:
+      pr_number:
+        description: 'Pull Request Number'
+        required: true
+        type: integer
+
 jobs:
   automerge:
     runs-on: ubuntu-latest
@@ -23,24 +28,24 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const pr_number = ${{ github.event.pull_request.number }};
+            const pr_number = ${{ github.event.inputs.pr_number || github.event.pull_request.number }};
             if (pr_number) {
               console.log(`PR number: ${pr_number}`);
             } else {
               console.log('This workflow is not triggered by a pull request event.');
             }
-            
-      - name: Check if PR mergeged
+
+      - name: Check if PR merged
         if: github.event.pull_request.merged == true
         run: |
-             echo The PR was merged
-      
+          echo "The PR was merged"
+
       - name: Ensure PR is mergeable
         id: mergeable
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Default token provided by GitHub Actions
         run: |
-          pr_details=$(gh pr view ${{ github.event.pull_request.number }} --json mergeable --jq .)
+          pr_details=$(gh pr view ${{ github.event.inputs.pr_number }} --json mergeable --jq .)
           echo "PR Details: $pr_details"
 
           # Fetch only the mergeable field from the PR details
@@ -70,7 +75,7 @@ jobs:
             const { data: reviews } = await github.rest.pulls.listReviews({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              pull_number: context.payload.pull_request.number
+              pull_number: ${{ github.event.inputs.pr_number }}
             });
 
             // Filter reviews for "APPROVED" state
@@ -91,7 +96,7 @@ jobs:
             const { data: pr } = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              pull_number: context.payload.pull_request.number
+              pull_number: ${{ github.event.inputs.pr_number }}
             });
 
             // Check mergeable state in the PR data (mergeable is a boolean)
@@ -111,7 +116,7 @@ jobs:
               await github.rest.pulls.merge({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                pull_number: context.payload.pull_request.number,
+                pull_number: ${{ github.event.inputs.pr_number }},
                 merge_method: "squash",
                 commit_title: "Auto-merged by GitHub Actions"
               });

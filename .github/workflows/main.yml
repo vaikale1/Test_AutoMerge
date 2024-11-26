@@ -44,7 +44,7 @@ jobs:
       - name: Wait for Build Workflow to complete
         run: |
           build_status="in_progress"
-          while [ "$build_status" != "completed" ]; do
+          while [ "$build_status" != "success" ]; do
             echo "Waiting for build workflow to complete..."
             # Check the status of the build workflow
             build_status=$(curl -s \

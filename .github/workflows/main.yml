@@ -41,6 +41,12 @@ jobs:
     needs: trigger_build  # This ensures the next job runs only after the previous one completes
     runs-on: ubuntu-latest
     steps:
+      - name: Debug GitHub Context (to check variables)
+        run: |
+          echo "head_ref: ${{ github.head_ref }}"
+          echo "ref: ${{ github.ref }}"
+          echo "PR source branch: ${{ github.event.pull_request.head.ref }}"
+          
       - name: Trigger Automerge Workflow using GitHub API
         run: |
           curl -X POST \
